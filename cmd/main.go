@@ -33,7 +33,7 @@ func generateRandomTrades(stkExch *exchange.Exchange) {
 			stkExch.IncomingTrades <- exchange.NewTransaction(
 				exchange.BuyTransactionType,
 				exchange.TransactionAmtDataType(
-					getRandomIntForRange(
+					getRandomIntForBuy(
 						int(stkExch.LastTradedPrice),
 					),
 				),
@@ -41,7 +41,7 @@ func generateRandomTrades(stkExch *exchange.Exchange) {
 			stkExch.IncomingTrades <- exchange.NewTransaction(
 				exchange.SellTransactionType,
 				exchange.TransactionAmtDataType(
-					getRandomIntForRange(
+					getRandomIntForSell(
 						int(stkExch.LastTradedPrice),
 					),
 				),
@@ -50,8 +50,16 @@ func generateRandomTrades(stkExch *exchange.Exchange) {
 	}
 }
 
-func getRandomIntForRange(target int) int {
-	return rand.Intn((target+50)-(target-50)+1) + (target - 50)
+func getRandomIntForBuy(target int) int {
+	min := (target - 100)
+	max := target
+	return rand.Intn(max-min+1) + min
+}
+
+func getRandomIntForSell(target int) int {
+	min := target - 25
+	max := target + 100
+	return rand.Intn(max-min+1) + min
 }
 
 func blockUntilSigInt() {

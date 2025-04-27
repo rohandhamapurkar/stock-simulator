@@ -118,6 +118,12 @@ The UI automatically updates in real-time as trades are executed and new orders 
 
 This provides a complete view of market depth and price discovery in action.
 
+#### UI Screenshot
+
+![Stock Market Simulator UI](screenshots/ui-screenshot.png)
+
+The screenshot above shows the web-based UI with the real-time price chart and order book visualization.
+
 ## Implementation Details
 
 ### Exchange

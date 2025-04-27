@@ -1,5 +1,10 @@
 package exchange
 
+import (
+	"fmt"
+	"time"
+)
+
 type Transaction struct {
 	ID     string
 	Type   string
@@ -13,12 +18,19 @@ const (
 	SellTransactionType = "SELL"
 )
 
+// generateID creates a unique ID for a transaction based on timestamp and type
+func generateID(txnType string) string {
+	timestamp := time.Now().UnixNano()
+	return fmt.Sprintf("%s-%d", txnType, timestamp)
+}
+
 /**
  * NewTransaction
- * Returns a instance of a new transaction
+ * Returns an instance of a new transaction with a unique ID
  */
 func NewTransaction(t string, amount TransactionAmtDataType) Transaction {
 	return Transaction{
+		ID:     generateID(t),
 		Type:   t,
 		Amount: amount,
 	}

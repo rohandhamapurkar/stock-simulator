@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Market Simulator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: bold;
+        }
+        .price-display {
+            font-size: 3rem;
+            font-weight: bold;
+            text-align: center;
+            color: #28a745;
+        }
+        .price-change {
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        .positive {
+            color: #28a745;
+        }
+        .negative {
+            color: #dc3545;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center my-4">Stock Market Simulator</h1>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        Current Price
+                    </div>
+                    <div class="card-body">
+                        <div class="price-display" id="current-price">100</div>
+                        <div class="price-change" id="price-change">0.00 (0.00%)</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        Statistics
+                    </div>
+                    <div class="card-body">
+                        <table class="table">
+                            <tr>
+                                <td>High</td>
+                                <td id="high-price">100</td>
+                            </tr>
+                            <tr>
+                                <td>Low</td>
+                                <td id="low-price">100</td>
+                            </tr>
+                            <tr>
+                                <td>Average</td>
+                                <td id="avg-price">100</td>
+                            </tr>
+                            <tr>
+                                <td>Updates</td>
+                                <td id="update-count">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        Order Book
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <h6 class="text-center text-success">Buy Orders</h6>
+                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Price</th>
+                                                <th>ID</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="buy-orders">
+                                            <tr><td colspan="2" class="text-center">No buy orders</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-center text-danger">Sell Orders</h6>
+                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Price</th>
+                                                <th>ID</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sell-orders">
+                                            <tr><td colspan="2" class="text-center">No sell orders</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        Price Chart
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="price-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize variables
+        let priceHistory = [];
+        let lastPrice = 100;
+        let highPrice = 100;
+        let lowPrice = 100;
+        let updateCount = 0;
+
+        // Initialize Chart.js
+        const ctx = document.getElementById('price-chart').getContext('2d');
+        const priceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Stock Price',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Price'
+                        },
+                        min: 0 // Ensure y-axis starts at 0
+                    }
+                },
+                animation: {
+                    duration: 0 // Disable animation for better performance
+                }
+            }
+        });
+
+        // Function to update the UI with a new price
+        function updatePrice(price, timestamp) {
+            // Update price history
+            priceHistory.push({ price, timestamp });
+            if (priceHistory.length > 100) {
+                priceHistory.shift();
+            }
+
+            // Update statistics
+            updateCount++;
+            highPrice = Math.max(highPrice, price);
+            lowPrice = Math.min(lowPrice, price);
+            const avgPrice = priceHistory.reduce((sum, item) => sum + item.price, 0) / priceHistory.length;
+
+            // Calculate price change
+            const priceChange = price - lastPrice;
+            const priceChangePercent = (priceChange / lastPrice) * 100;
+
+            // Update UI elements
+            document.getElementById('current-price').textContent = price;
+
+            const priceChangeElement = document.getElementById('price-change');
+            priceChangeElement.textContent = `${priceChange.toFixed(2)} (${priceChangePercent.toFixed(2)}%)`;
+
+            if (priceChange > 0) {
+                priceChangeElement.className = 'price-change positive';
+                priceChangeElement.textContent = `+${priceChangeElement.textContent}`;
+            } else if (priceChange < 0) {
+                priceChangeElement.className = 'price-change negative';
+            } else {
+                priceChangeElement.className = 'price-change';
+            }
+
+            document.getElementById('high-price').textContent = highPrice;
+            document.getElementById('low-price').textContent = lowPrice;
+            document.getElementById('avg-price').textContent = avgPrice.toFixed(2);
+            document.getElementById('update-count').textContent = updateCount;
+
+            // Update chart
+            const formattedTime = new Date(timestamp).toLocaleTimeString();
+            priceChart.data.labels.push(formattedTime);
+            priceChart.data.datasets[0].data.push(price);
+
+            // Keep only the last 50 data points in the chart
+            if (priceChart.data.labels.length > 50) {
+                priceChart.data.labels.shift();
+                priceChart.data.datasets[0].data.shift();
+            }
+
+            priceChart.update();
+
+            // Update last price
+            lastPrice = price;
+        }
+
+        // Function to update the order book display
+        function updateOrderBook(orderBook) {
+            const buyOrdersElement = document.getElementById('buy-orders');
+            const sellOrdersElement = document.getElementById('sell-orders');
+
+            // Clear current order book display
+            buyOrdersElement.innerHTML = '';
+            sellOrdersElement.innerHTML = '';
+
+            // Add buy orders
+            if (orderBook.buyOrders && orderBook.buyOrders.length > 0) {
+                orderBook.buyOrders.forEach(order => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="text-success">${order.price}</td>
+                        <td class="text-muted small">${formatOrderId(order.id)}</td>
+                    `;
+                    buyOrdersElement.appendChild(row);
+                });
+            } else {
+                buyOrdersElement.innerHTML = '<tr><td colspan="2" class="text-center">No buy orders</td></tr>';
+            }
+
+            // Add sell orders
+            if (orderBook.sellOrders && orderBook.sellOrders.length > 0) {
+                orderBook.sellOrders.forEach(order => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="text-danger">${order.price}</td>
+                        <td class="text-muted small">${formatOrderId(order.id)}</td>
+                    `;
+                    sellOrdersElement.appendChild(row);
+                });
+            } else {
+                sellOrdersElement.innerHTML = '<tr><td colspan="2" class="text-center">No sell orders</td></tr>';
+            }
+        }
+
+        // Helper function to format order IDs (truncate to keep UI clean)
+        function formatOrderId(id) {
+            if (!id) return '';
+            if (id.length <= 10) return id;
+            return id.substring(0, 5) + '...' + id.substring(id.length - 5);
+        }
+
+        // Connect to WebSocket
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = function() {
+                console.log('WebSocket connection established');
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+
+                    // Check if it's an array (price history)
+                    if (Array.isArray(message)) {
+                        message.forEach(item => {
+                            if (item.type === 'price_update') {
+                                updatePrice(item.data.price, item.timestamp);
+                            }
+                        });
+                        return;
+                    }
+
+                    // Handle different message types
+                    switch (message.type) {
+                        case 'price_update':
+                            updatePrice(message.data.price, message.timestamp);
+                            break;
+                        case 'order_book':
+                            updateOrderBook(message.data);
+                            break;
+                        default:
+                            console.log('Unknown message type:', message.type);
+                    }
+                } catch (error) {
+                    console.error('Error processing message:', error);
+                }
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket connection closed. Reconnecting...');
+                setTimeout(connectWebSocket, 1000);
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                ws.close();
+            };
+        }
+
+        // Fetch initial data
+        async function fetchInitialData() {
+            try {
+                // Fetch current price
+                const priceResponse = await fetch('/api/price');
+                const priceData = await priceResponse.json();
+                lastPrice = priceData.price;
+                document.getElementById('current-price').textContent = lastPrice;
+
+                // Fetch price history
+                const historyResponse = await fetch('/api/history');
+                const historyData = await historyResponse.json();
+
+                if (historyData.length > 0) {
+                    historyData.forEach(item => {
+                        if (item.type === 'price_update') {
+                            updatePrice(item.data.price, item.timestamp);
+                        }
+                    });
+                }
+
+                // Fetch order book
+                const orderBookResponse = await fetch('/api/orderbook');
+                const orderBookData = await orderBookResponse.json();
+                updateOrderBook(orderBookData);
+
+            } catch (error) {
+                console.error('Error fetching initial data:', error);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchInitialData().then(() => {
+                connectWebSocket();
+            });
+        });
+    </script>
+</body>
+</html>

@@ -52,8 +52,14 @@ func (node *treeNode) searchNode(value TransactionAmtDataType) *Transaction {
     if value == node.Value.Amount {
         return &node.Value
     } else if value < node.Value.Amount {
+        if node.Left == nil {
+            return nil
+        }
         return node.Left.searchNode(value)
     } else {
+        if node.Right == nil {
+            return nil
+        }
         return node.Right.searchNode(value)
     }
 }
@@ -68,9 +74,13 @@ func (bst *TxnBST) InorderTraversal() []Transaction {
 // inorder appends the values of the subtree rooted at the given node to the result slice in sorted order.
 func (node *treeNode) inorder(result *[]Transaction) {
     if node != nil {
-        node.Left.inorder(result)
+        if node.Left != nil {
+            node.Left.inorder(result)
+        }
         *result = append(*result, node.Value)
-        node.Right.inorder(result)
+        if node.Right != nil {
+            node.Right.inorder(result)
+        }
     }
 }
 

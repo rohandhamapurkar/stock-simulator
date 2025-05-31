@@ -3,7 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"net/http"
-	"stockmarketsim/exchange"
+	"github.com/rohan/stock-simulator/exchange"
 	"time"
 )
 

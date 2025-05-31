@@ -10,9 +10,8 @@ import (
 type Exchange struct {
 	IncomingTrades  chan Transaction
 	LastTradedPrice TransactionAmtDataType
-	BuyQ            TxnBST
-	SellQ           TxnBST
-	queueLock       sync.Mutex
+	BuyQ            *ConcurrentTxnBST
+	SellQ           *ConcurrentTxnBST
 	// Callbacks for price updates
 	priceUpdateCallbacks []func(int)
 	callbacksLock        sync.Mutex
@@ -29,8 +28,8 @@ func NewExchange(ltp TransactionAmtDataType) Exchange {
 	return Exchange{
 		IncomingTrades:       make(chan Transaction),
 		LastTradedPrice:      ltp,
-		BuyQ:                 TxnBST{},
-		SellQ:                TxnBST{},
+		BuyQ:                 NewConcurrentTxnBST(),
+		SellQ:                NewConcurrentTxnBST(),
 		priceUpdateCallbacks: make([]func(int), 0),
 	}
 }
@@ -67,12 +66,25 @@ func (exch *Exchange) notifyPriceUpdate(price int) {
 	}
 }
 
+// GetMemoryStats returns memory usage statistics for the order books
+func (exch *Exchange) GetMemoryStats() map[string]int64 {
+	buyAllocated, buyRecycled := exch.BuyQ.GetStats()
+	sellAllocated, sellRecycled := exch.SellQ.GetStats()
+	
+	return map[string]int64{
+		"BuyQAllocated":  buyAllocated,
+		"BuyQRecycled":   buyRecycled,
+		"SellQAllocated": sellAllocated,
+		"SellQRecycled":  sellRecycled,
+		"TotalAllocated": buyAllocated + sellAllocated,
+		"TotalRecycled":  buyRecycled + sellRecycled,
+		"MemorySaved":    buyRecycled + sellRecycled,
+	}
+}
+
 // GetOrderBook returns the current state of the order book
 func (exch *Exchange) GetOrderBook() OrderBook {
-	exch.queueLock.Lock()
-	defer exch.queueLock.Unlock()
-
-	// Get all buy orders
+	// Get all buy orders - ConcurrentTxnBST handles locking internally
 	buyOrders := exch.BuyQ.InorderTraversal()
 	buyEntries := make([]OrderBookEntry, 0, len(buyOrders))
 	for _, order := range buyOrders {
@@ -88,7 +100,7 @@ func (exch *Exchange) GetOrderBook() OrderBook {
 		return buyEntries[i].Price > buyEntries[j].Price
 	})
 
-	// Get all sell orders
+	// Get all sell orders - ConcurrentTxnBST handles locking internally
 	sellOrders := exch.SellQ.InorderTraversal()
 	sellEntries := make([]OrderBookEntry, 0, len(sellOrders))
 	for _, order := range sellOrders {
@@ -132,7 +144,7 @@ func (exch *Exchange) AcceptTrades() {
 			continue
 		}
 
-		exch.queueLock.Lock()
+		// ConcurrentTxnBST handles locking internally
 		if txn.Type == BuyTransactionType {
 			exch.BuyQ.Insert(txn)
 			logger.Debug(fmt.Sprintf("Accepted buy order: %s, price: %d", txn.ID, txn.Amount))
@@ -142,7 +154,6 @@ func (exch *Exchange) AcceptTrades() {
 		} else {
 			logger.Warn(fmt.Sprintf("Received unknown transaction type: %s", txn.Type))
 		}
-		exch.queueLock.Unlock()
 	}
 }
 
@@ -155,23 +166,8 @@ func (exch *Exchange) ProcessTrades() {
 		<-ticker.C
 		logger.Info("Processing trades")
 
-		// Use a timeout for acquiring the lock to prevent deadlocks
-		lockAcquired := make(chan bool, 1)
-		go func() {
-			exch.queueLock.Lock()
-			lockAcquired <- true
-		}()
-
-		// Wait for lock with timeout
-		select {
-		case <-lockAcquired:
-			// Lock acquired, proceed with processing
-		case <-time.After(500 * time.Millisecond):
-			logger.Warn("Failed to acquire lock within timeout, skipping this cycle")
-			continue
-		}
-
 		// Get all buy orders sorted by price (highest first)
+		// ConcurrentTxnBST handles locking internally
 		buyOrders := exch.BuyQ.InorderTraversal()
 		// Reverse the order to get highest prices first (better for buyers)
 		for i, j := 0, len(buyOrders)-1; i < j; i, j = i+1, j-1 {
@@ -179,6 +175,7 @@ func (exch *Exchange) ProcessTrades() {
 		}
 
 		// Get all sell orders sorted by price (lowest first)
+		// ConcurrentTxnBST handles locking internally
 		sellOrders := exch.SellQ.InorderTraversal()
 
 		// Match orders with improved algorithm
@@ -223,11 +220,9 @@ func (exch *Exchange) ProcessTrades() {
 			exch.notifyPriceUpdate(int(exch.LastTradedPrice))
 
 			// Remove the matched orders from their respective queues
+			// ConcurrentTxnBST handles locking internally
 			exch.BuyQ.Remove(pair.buy)
 			exch.SellQ.Remove(pair.sell)
 		}
-
-		// Release the lock after processing
-		exch.queueLock.Unlock()
 	}
 }

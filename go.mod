@@ -1,4 +1,4 @@
-module stockmarketsim
+module github.com/rohan/stock-simulator
 
 go 1.21.4
 

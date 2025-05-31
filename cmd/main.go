@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"stockmarketsim/exchange"
-	"stockmarketsim/ui"
+	"github.com/rohan/stock-simulator/exchange"
+	"github.com/rohan/stock-simulator/ui"
 	"syscall"
 	"time"
 )
@@ -48,6 +48,18 @@ func main() {
 	logger.Info("UI server started on http://localhost:8080")
 
 	logger.Info("All systems initialized. Simulator running.")
+	
+	// Start a goroutine to periodically log memory statistics
+	go func() {
+		memStatsTicker := time.NewTicker(30 * time.Second)
+		for {
+			<-memStatsTicker.C
+			stats := stockExchange.GetMemoryStats()
+			logger.Info(fmt.Sprintf("Memory stats - Allocated: %d, Recycled: %d, Saved: %d nodes",
+				stats["TotalAllocated"], stats["TotalRecycled"], stats["MemorySaved"]))
+		}
+	}()
+	
 	blockUntilSigInt(logger)
 }
 

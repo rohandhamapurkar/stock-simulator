@@ -78,7 +78,7 @@ Build and run the simulator:
 
 ```bash
 go build
-./stockmarketsim
+./stock-simulator
 ```
 
 The program will start generating random buy and sell orders, matching compatible orders, and updating the Last Traded Price. The current LTP will be displayed in the console as trades are executed.
@@ -86,6 +86,32 @@ The program will start generating random buy and sell orders, matching compatibl
 The web UI will automatically start and be accessible at http://localhost:8080 in your web browser.
 
 To exit the simulator, press `Ctrl+C`.
+
+### Running Tests
+
+To run all tests in the project:
+
+```bash
+go test ./...
+```
+
+To run tests for a specific package:
+
+```bash
+go test ./exchange
+```
+
+To run tests with verbose output:
+
+```bash
+go test -v ./...
+```
+
+To run a specific test:
+
+```bash
+go test -v ./exchange -run TestBSTInsert
+```
 
 ### Understanding the Output
 
@@ -137,19 +163,46 @@ Each transaction (order) includes:
 - Type (BUY or SELL)
 - Price amount (with protection to ensure prices never go below 1)
 
-### Binary Search Tree
+### Optimized Self-Balancing AVL Tree
 
-The order books use a Binary Search Tree data structure for efficient insertion, search, and deletion operations, which are critical for fast order matching.
+The order books use a highly optimized self-balancing AVL tree data structure for efficient insertion, search, and deletion operations, which are critical for fast order matching. The AVL tree implementation includes:
+
+- **Performance Optimization**:
+  - Guaranteed O(log n) time complexity for all operations
+  - Automatic balancing to prevent performance degradation
+  - Consistent performance regardless of the order of insertions and deletions
+
+- **Concurrent Access Optimization**:
+  - Thread-safe operations with fine-grained locking
+  - Read-write locks allowing multiple simultaneous readers
+  - Lock-free read operations where possible
+
+- **Memory Optimization**:
+  - Node pooling to reduce garbage collection pressure
+  - Efficient node recycling for deleted nodes
+  - Memory usage statistics tracking
 
 ### Concurrency
 
-The simulator uses Go's goroutines and channels to handle concurrent operations:
-- Order generation runs in a separate goroutine
-- Order acceptance runs in its own goroutine
-- Trade processing runs in another goroutine
-- WebSocket communication runs in separate goroutines
-- UI server runs in its own goroutine
-- Mutex locks protect shared resources during updates
+The simulator leverages Go's powerful concurrency features for high performance:
+
+- **Goroutines for Parallel Processing**:
+  - Order generation runs in a separate goroutine
+  - Order acceptance runs in its own goroutine
+  - Trade processing runs in another goroutine
+  - WebSocket communication runs in separate goroutines
+  - UI server runs in its own goroutine
+
+- **Advanced Synchronization**:
+  - Fine-grained read-write locks for optimal concurrency
+  - Lock-free operations where possible
+  - Thread-safe data structures with internal synchronization
+  - Efficient resource sharing with minimal contention
+
+- **Memory Efficiency**:
+  - Object pooling to reduce allocation overhead
+  - Efficient garbage collection through object reuse
+  - Memory usage statistics for monitoring and optimization
 
 ### Web UI
 
@@ -231,5 +284,6 @@ SOFTWARE.
 - Implement historical data storage and replay functionality
 - Add authentication for different user roles
 - Create mobile-responsive design for the UI
-- Implement performance optimizations for high-frequency trading scenarios
+- Implement additional performance optimizations for high-frequency trading scenarios
 - Add simulated news events that affect market behavior
+- Enhance the AVL tree implementation with concurrent access optimizations
